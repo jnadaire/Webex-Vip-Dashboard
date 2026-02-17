@@ -62,9 +62,7 @@ export class WebexApiAdapter implements WebexAdapter {
       workspace: item.workspaceLocationId,
       product: item.product,
       software: item.software,
-      connected:
-        item.connectionStatus?.toLowerCase() === "connected" ||
-        item.connectionStatus?.toLowerCase() === "online",
+      connected: mapConnectionStatus(item.connectionStatus),
       lastSeenAt: item.lastSeen
     }));
   }
@@ -184,6 +182,20 @@ export class WebexApiAdapter implements WebexAdapter {
 
     return { inCall, qos };
   }
+}
+
+function mapConnectionStatus(connectionStatus?: string): boolean | undefined {
+  const status = (connectionStatus || "").trim().toLowerCase();
+  if (!status) {
+    return undefined;
+  }
+  if (status.includes("connected") || status.includes("online")) {
+    return true;
+  }
+  if (status.includes("disconnected") || status.includes("offline")) {
+    return false;
+  }
+  return undefined;
 }
 
 function hasAnyQosValue(value: {

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "./scripts/dev-with-tunnel.sh",
+    "dev:server": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json && cp -R src/public dist/public",
     "start": "node dist/server.js",
     "check": "tsc --noEmit"

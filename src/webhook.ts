@@ -254,7 +254,7 @@ function resolveDeviceId(
   fullPayload: Record<string, unknown>
 ) {
   const direct = extractDeviceId(data, fullPayload);
-  if (direct) {
+  if (direct && store.getDevice(direct)) {
     return direct;
   }
   const nameHint = extractDeviceNameHint(data, fullPayload)?.toLowerCase();
@@ -270,6 +270,9 @@ function resolveDeviceId(
     if (candidates.length === 1) {
       return candidates[0].id;
     }
+    if (direct) {
+      return direct;
+    }
     return undefined;
   }
   const normalizedHint = normalizeName(nameHint);
@@ -281,7 +284,7 @@ function resolveDeviceId(
     const normalized = normalizeName(d.name);
     return normalizedHint === normalized || normalized.includes(normalizedHint) || normalizedHint.includes(normalized);
   });
-  return byName?.id;
+  return byName?.id || direct;
 }
 
 function inferFaultSeverity(

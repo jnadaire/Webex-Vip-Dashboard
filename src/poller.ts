@@ -20,7 +20,12 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
           workspace: device.workspace,
           product: device.product,
           software: device.software,
-          status: device.connected ? "online" : "offline",
+          status:
+            device.connected === true
+              ? "online"
+              : device.connected === false
+                ? "offline"
+                : "unknown",
           lastSeenAt: device.lastSeenAt
         });
       }
