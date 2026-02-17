@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webex Device Supervision</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <div class="site-bg"></div>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-wrap">
+          <div class="brand-mark">WEBEX</div>
+          <div class="brand-text">Developer Supervision</div>
+        </div>
+        <div class="controls">
+          <label for="language" data-i18n="app.language"></label>
+          <select id="language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="main-layout">
+        <div class="content-area">
+          <section class="page active" id="page-dashboard">
+            <section class="hero">
+              <h1 data-i18n="app.title"></h1>
+              <p data-i18n="app.subtitle"></p>
+            </section>
+
+            <section class="auth-panel" id="auth-panel">
+              <h2 data-i18n="auth.title"></h2>
+              <p class="error" id="auth-error"></p>
+              <form id="login-form">
+                <input id="email" name="email" type="email" placeholder="email@example.com" required />
+                <button type="submit" data-i18n="auth.login"></button>
+              </form>
+              <p class="help" data-i18n="auth.help"></p>
+            </section>
+
+            <section class="stats" id="stats"></section>
+          </section>
+
+          <section class="page" id="page-devices">
+            <section class="panel tag-panel">
+              <div class="tag-header">
+                <h2 data-i18n="filters.tagsTitle"></h2>
+                <button id="clear-tags" type="button" data-i18n="filters.clear"></button>
+              </div>
+              <div id="tag-filters"></div>
+            </section>
+            <section class="grid">
+              <article class="panel">
+                <h2 data-i18n="devices.title"></h2>
+                <div id="devices"></div>
+                <div id="devices-empty" class="qos-idle"></div>
+              </article>
+            </section>
+          </section>
+
+          <section class="page" id="page-alerts">
+            <section class="panel tag-panel">
+              <div class="tag-header">
+                <h2 data-i18n="filters.tagsTitle"></h2>
+                <button id="clear-tags-alerts" type="button" data-i18n="filters.clear"></button>
+              </div>
+              <div id="tag-filters-alerts"></div>
+            </section>
+            <section class="panel">
+              <div class="alerts-header">
+                <h2 data-i18n="alerts.title"></h2>
+                <button type="button" id="alerts-clear-all" class="alert-ignore" data-i18n="alerts.clearAll"></button>
+              </div>
+              <div id="alerts-list"></div>
+            </section>
+          </section>
+        </div>
+
+        <aside class="side-menu">
+          <button type="button" class="side-link active" data-route="dashboard" data-i18n="nav.dashboard"></button>
+          <button type="button" class="side-link" data-route="devices" data-i18n="nav.devices"></button>
+          <button type="button" class="side-link side-link-alerts" data-route="alerts">
+            <span data-i18n="nav.alerts"></span>
+            <span id="alerts-new-badge" class="alerts-new-badge hidden">0</span>
+          </button>
+          <div class="side-divider"></div>
+          <div class="side-section-title" data-i18n="filters.tagsTitle"></div>
+          <div id="tag-filters-side"></div>
+          <div class="side-divider"></div>
+          <div class="side-section-title" data-i18n="filters.statusTitle"></div>
+          <div id="status-filters"></div>
+          <div class="side-divider"></div>
+          <div class="side-section-title" data-i18n="filters.deviceTypeTitle"></div>
+          <div id="type-filters"></div>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

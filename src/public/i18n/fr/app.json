@@ -1,0 +1,14 @@
+{
+  "app": {
+    "title": "Supervision des Devices Webex",
+    "subtitle": "Statut temps réel, défauts et QoS en appel",
+    "language": "Langue"
+  },
+  "auth": {
+    "title": "Connexion",
+    "login": "Se connecter",
+    "help": "Utilisez un email présent dans ADMIN_USERS ou READONLY_USERS.",
+    "sessionExpired": "Session expirée. Reconnectez-vous.",
+    "loginFailed": "Échec de connexion. Vérifiez l'email puis réessayez."
+  }
+}

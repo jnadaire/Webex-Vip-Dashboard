@@ -1,0 +1,56 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "devices": "Devices",
+    "alerts": "Alertes"
+  },
+  "stats": {
+    "total": "Devices total",
+    "online": "Online",
+    "offline": "Offline",
+    "inCall": "En appel",
+    "faults": "Défauts"
+  },
+  "filters": {
+    "tagsTitle": "Filtrer par tags",
+    "statusTitle": "Filtres de statut",
+    "deviceTypeTitle": "Type de device",
+    "clear": "Effacer",
+    "offline": "Offline",
+    "online": "Online",
+    "inCall": "En appel",
+    "onlyWithIssues": "Online avec défauts",
+    "inCallWithIssues": "En appel avec défauts"
+  },
+  "devices": {
+    "title": "Devices",
+    "since": "Depuis",
+    "minutes": "min",
+    "inCall": "En appel",
+    "idle": "Inactif",
+    "qos": "QoS",
+    "bandwidth": "Bande passante",
+    "noQos": "Pas de métriques QoS",
+    "qosPending": "En appel - en attente des métriques QoS live",
+    "noMatch": "Aucun device ne correspond aux filtres actifs.",
+    "noDevices": "Aucun device disponible",
+    "badgeOffline": "Offline",
+    "badgeOnline": "Online",
+    "badgeInCall": "En appel",
+    "badgeOnlineWithIssues": "Online avec défauts",
+    "badgeInCallWithIssues": "En appel avec défauts"
+  },
+  "alerts": {
+    "title": "Alertes",
+    "empty": "Aucune alerte à afficher",
+    "deviceWentOffline": "Le device est passé offline",
+    "deviceBackOnline": "Le device est de nouveau online",
+    "deviceStatusChanged": "Le statut du device a changé",
+    "callStarted": "Appel démarré",
+    "callEnded": "Appel terminé",
+    "issueDetected": "Problème détecté",
+    "eventReceived": "Événement reçu",
+    "ignore": "Ignorer",
+    "clearAll": "Tout ignorer"
+  }
+}

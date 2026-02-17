@@ -1,0 +1,56 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "devices": "Devices",
+    "alerts": "Alerts"
+  },
+  "stats": {
+    "total": "Total devices",
+    "online": "Online",
+    "offline": "Offline",
+    "inCall": "In call",
+    "faults": "Faults"
+  },
+  "filters": {
+    "tagsTitle": "Filter by tags",
+    "statusTitle": "Status filters",
+    "deviceTypeTitle": "Device type",
+    "clear": "Clear",
+    "offline": "Offline",
+    "online": "Online",
+    "inCall": "In call",
+    "onlyWithIssues": "Online with issues",
+    "inCallWithIssues": "In call with issues"
+  },
+  "devices": {
+    "title": "Devices",
+    "since": "Since",
+    "minutes": "min",
+    "inCall": "In call",
+    "idle": "Idle",
+    "qos": "QoS",
+    "bandwidth": "Bandwidth",
+    "noQos": "No QoS metrics",
+    "qosPending": "In call - waiting for live QoS metrics",
+    "noMatch": "No devices match active filters.",
+    "noDevices": "No devices available",
+    "badgeOffline": "Offline",
+    "badgeOnline": "Online",
+    "badgeInCall": "In Call",
+    "badgeOnlineWithIssues": "Online with issues",
+    "badgeInCallWithIssues": "In call with issues"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "empty": "No alerts to display",
+    "deviceWentOffline": "Device went offline",
+    "deviceBackOnline": "Device is back online",
+    "deviceStatusChanged": "Device status changed",
+    "callStarted": "Call started",
+    "callEnded": "Call ended",
+    "issueDetected": "Issue detected",
+    "eventReceived": "Event received",
+    "ignore": "Ignore",
+    "clearAll": "Clear all"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "app": {
+    "title": "Webex Device Supervision",
+    "subtitle": "Realtime status, faults and in-call QoS",
+    "language": "Language"
+  },
+  "auth": {
+    "title": "Login",
+    "login": "Connect",
+    "help": "Use an email listed in ADMIN_USERS or READONLY_USERS.",
+    "sessionExpired": "Session expired. Please sign in again.",
+    "loginFailed": "Login failed. Check your email and retry."
+  }
+}
