@@ -270,9 +270,6 @@ function resolveDeviceId(
     if (candidates.length === 1) {
       return candidates[0].id;
     }
-    if (direct) {
-      return direct;
-    }
     return undefined;
   }
   const normalizedHint = normalizeName(nameHint);
@@ -284,7 +281,7 @@ function resolveDeviceId(
     const normalized = normalizeName(d.name);
     return normalizedHint === normalized || normalized.includes(normalizedHint) || normalizedHint.includes(normalized);
   });
-  return byName?.id || direct;
+  return byName?.id;
 }
 
 function inferFaultSeverity(
@@ -423,6 +420,19 @@ export function buildWebhookHandler(store: DeviceStore, observability: Observabi
       const fault = extractFaultPayload(normalized.resource, normalized.event, data, payload);
       if (fault) {
         store.addFault(deviceId, fault);
+      }
+    } else {
+      const fault = extractFaultPayload(normalized.resource, normalized.event, data, payload);
+      const rawDeviceId = extractDeviceId(data, payload);
+      if (fault && rawDeviceId) {
+        const nameHint = extractDeviceNameHint(data, payload) || rawDeviceId;
+        store.upsertDevice({
+          id: rawDeviceId,
+          name: nameHint,
+          tags: [],
+          status: "unknown"
+        });
+        store.addFault(rawDeviceId, fault);
       }
     }
 

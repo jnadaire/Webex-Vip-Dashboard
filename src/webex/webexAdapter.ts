@@ -11,6 +11,7 @@ interface WebexDeviceApiResponse {
     software?: string;
     connectionStatus?: string;
     lastSeen?: string;
+    errorCodes?: string[];
   }>;
 }
 
@@ -63,7 +64,8 @@ export class WebexApiAdapter implements WebexAdapter {
       product: item.product,
       software: item.software,
       connected: mapConnectionStatus(item.connectionStatus),
-      lastSeenAt: item.lastSeen
+      lastSeenAt: item.lastSeen,
+      errorCodes: (item.errorCodes || []).filter((e) => typeof e === "string")
     }));
   }
 

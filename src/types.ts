@@ -1,12 +1,14 @@
 export type DeviceStatus = "online" | "offline" | "unknown";
 
 export type DeviceFaultSeverity = "info" | "warning" | "critical";
+export type DeviceFaultSource = "webhook" | "webex_status";
 
 export interface DeviceFault {
   id: string;
   code: string;
   message: string;
   severity: DeviceFaultSeverity;
+  source?: DeviceFaultSource;
   createdAt: string;
 }
 
@@ -63,6 +65,7 @@ export interface AdapterDevice {
   software?: string;
   connected?: boolean;
   lastSeenAt?: string;
+  errorCodes?: string[];
 }
 
 export interface AdapterCallMetrics {

@@ -28,6 +28,7 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
                 : "unknown",
           lastSeenAt: device.lastSeenAt
         });
+        store.syncSystemFaultCodes(device.id, device.errorCodes || []);
       }
       logger.info(
         {

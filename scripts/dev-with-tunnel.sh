@@ -21,4 +21,14 @@ TUNNEL_PID=$!
 tsx watch src/server.ts &
 SERVER_PID=$!
 
-wait -n "$SERVER_PID" "$TUNNEL_PID"
+while true; do
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    wait "$SERVER_PID" || true
+    break
+  fi
+  if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
+    wait "$TUNNEL_PID" || true
+    break
+  fi
+  sleep 1
+done
