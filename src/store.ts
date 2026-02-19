@@ -7,6 +7,7 @@ import {
   InboundWebhookEvent,
   QosMetrics
 } from "./types.js";
+import { isCrashSignal } from "./crash.js";
 
 const WEBHOOK_EVENT_TTL_MS = 60 * 60 * 1000;
 
@@ -36,11 +37,45 @@ export class DeviceStore {
           : partial.statusSince || now,
       lastSeenAt: partial.lastSeenAt,
       inCall: prev?.inCall ?? false,
+      booked: prev?.booked,
+      used: prev?.used,
+      possibleCrash:
+        partial.status === "offline"
+          ? (prev?.possibleCrash ?? false)
+          : false,
       callStateUpdatedAt: prev?.callStateUpdatedAt,
       faults: prev?.faults ?? [],
       qos: prev?.qos,
       updatedAt: now
     };
+
+    const possibleCrashTransition =
+      !!prev && prev.inCall && prev.status !== "offline" && next.status === "offline";
+    if (possibleCrashTransition) {
+      next.possibleCrash = true;
+      const already = next.faults.some((f) => String(f.code).toLowerCase() === "possible_crash");
+      if (!already) {
+        const crashFault: DeviceFault = {
+          id: randomUUID(),
+          code: "POSSIBLE_CRASH",
+          message: "possible crash",
+          severity: "critical",
+          createdAt: now
+        };
+        next.faults.unshift(crashFault);
+        this.pushEvent({
+          id: randomUUID(),
+          deviceId: next.id,
+          type: "fault",
+          at: now,
+          payload: crashFault as unknown as Record<string, unknown>
+        });
+      }
+    } else if (next.status !== "offline") {
+      next.possibleCrash = false;
+      next.faults = next.faults.filter((f) => String(f.code).toLowerCase() !== "possible_crash");
+      next.faults = next.faults.filter((f) => !isOfflineStatusFault(f));
+    }
 
     this.devices.set(next.id, next);
     const statusChanged = !!prev && prev.status !== next.status;
@@ -97,6 +132,27 @@ export class DeviceStore {
     }
   }
 
+  setUsageState(deviceId: string, booked?: boolean, used?: boolean) {
+    const current = this.devices.get(deviceId);
+    if (!current) {
+      return;
+    }
+    let changed = false;
+    if (typeof booked === "boolean" && current.booked !== booked) {
+      current.booked = booked;
+      changed = true;
+    }
+    if (typeof used === "boolean" && current.used !== used) {
+      current.used = used;
+      changed = true;
+    }
+    if (!changed) {
+      return;
+    }
+    current.updatedAt = new Date().toISOString();
+    this.notifyListeners();
+  }
+
   addFault(deviceId: string, fault: Omit<DeviceFault, "id" | "createdAt"> & { source?: DeviceFaultSource }) {
     const current = this.devices.get(deviceId);
     if (!current) {
@@ -128,28 +184,29 @@ export class DeviceStore {
     }
 
     const desired = [...new Set((codes || []).map((c) => String(c || "").trim()).filter(Boolean))];
-    const currentSystem = current.faults.filter((f) => f.source === "webex_status");
-    const currentSystemCodes = new Set(currentSystem.map((f) => f.code.toLowerCase()));
-    const desiredCodes = new Set(desired.map((c) => c.toLowerCase()));
+    const desiredKeys = new Set(desired.map((c) => toSystemFaultKey(c)));
+    const managedCurrent = current.faults.filter((f) => isSystemManagedFault(f));
+    const managedCurrentKeys = new Set(managedCurrent.map((f) => toSystemFaultKey(f.code || f.message || "")));
 
     const sameSet =
-      currentSystemCodes.size === desiredCodes.size &&
-      [...currentSystemCodes].every((c) => desiredCodes.has(c));
+      managedCurrentKeys.size === desiredKeys.size &&
+      [...managedCurrentKeys].every((k) => desiredKeys.has(k));
     if (sameSet) {
       return;
     }
 
     const now = new Date().toISOString();
     const nextSystem = desired.map((code) => {
-      const existing = currentSystem.find((f) => f.code.toLowerCase() === code.toLowerCase());
+      const key = toSystemFaultKey(code);
+      const existing = managedCurrent.find((f) => toSystemFaultKey(f.code || f.message || "") === key);
       if (existing) {
-        return existing;
+        return { ...existing, source: "webex_status" as const };
       }
       const created: DeviceFault = {
         id: randomUUID(),
         code,
         message: mapSystemFaultMessage(code),
-        severity: "warning",
+        severity: isCrashSignal(code) ? "critical" : "warning",
         source: "webex_status",
         createdAt: now
       };
@@ -163,7 +220,7 @@ export class DeviceStore {
       return created;
     });
 
-    const nonSystem = current.faults.filter((f) => f.source !== "webex_status");
+    const nonSystem = current.faults.filter((f) => !isSystemManagedFault(f));
     current.faults = [...nextSystem, ...nonSystem].slice(0, 20);
     current.updatedAt = now;
     this.notifyListeners();
@@ -234,10 +291,38 @@ export class DeviceStore {
 
 function mapSystemFaultMessage(code: string) {
   const key = code.toLowerCase();
+  if (isCrashSignal(code)) {
+    return "Device crash detected";
+  }
   if (key === "ultrasoundconfigsettings") {
     return "Ultrasound pairing may fail";
   }
   return code;
+}
+
+function toSystemFaultKey(value: string) {
+  const v = String(value || "").toLowerCase();
+  if (v.includes("ultrasound") || v.includes("ultrason")) {
+    return "ultrasound";
+  }
+  return v.trim();
+}
+
+function isSystemManagedFault(fault: DeviceFault) {
+  if (fault.source === "webex_status") {
+    return true;
+  }
+  const key = toSystemFaultKey(`${fault.code} ${fault.message}`);
+  return key === "ultrasound";
+}
+
+function isOfflineStatusFault(fault: DeviceFault) {
+  const text = `${fault.code || ""} ${fault.message || ""}`.toLowerCase();
+  return (
+    text.includes("online/offline") ||
+    text.includes("device is now offline") ||
+    text.includes("device went offline")
+  );
 }
 
 function sameQos(a: QosMetrics | undefined, b: QosMetrics | undefined) {

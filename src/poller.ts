@@ -51,6 +51,7 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
       }
       const metrics = await adapter.fetchCallMetrics(deviceIds);
       for (const metric of metrics) {
+        store.setUsageState(metric.deviceId, metric.booked, metric.used);
         const hasQos =
           metric.packetLossPct !== undefined ||
           metric.jitterMs !== undefined ||

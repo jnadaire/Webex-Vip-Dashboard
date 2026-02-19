@@ -79,6 +79,7 @@ export class WebexApiAdapter implements WebexAdapter {
           const conference = await this.fetchConferenceSnapshot(deviceId);
           const inCall =
             inCallFromActive !== undefined ? inCallFromActive || conference.inCall : conference.inCall;
+          const signals = await this.fetchRoomSignals(deviceId);
 
           if (inCall && !hasAnyQosValue(conference.qos)) {
             logger.info({ deviceId }, "in-call-without-qos");
@@ -87,6 +88,8 @@ export class WebexApiAdapter implements WebexAdapter {
           metrics.push({
             deviceId,
             inCall,
+            booked: signals.booked,
+            used: signals.used ?? (inCall ? true : undefined),
             packetLossPct: conference.qos.packetLossPct,
             jitterMs: conference.qos.jitterMs,
             latencyMs: conference.qos.latencyMs,
@@ -184,6 +187,50 @@ export class WebexApiAdapter implements WebexAdapter {
 
     return { inCall, qos };
   }
+
+  private async fetchRoomSignals(deviceId: string): Promise<{ booked?: boolean; used?: boolean }> {
+    const names = [
+      "RoomAnalytics",
+      "RoomAnalytics.PeoplePresence",
+      "RoomAnalytics.InUse",
+      "RoomAnalytics.PeopleCount",
+      "Bookings",
+      "Bookings.Availability",
+      "Bookings.Current"
+    ];
+
+    let booked: boolean | undefined;
+    let used: boolean | undefined;
+
+    for (const name of names) {
+      try {
+        const res = await fetch(
+          `https://webexapis.com/v1/xapi/status?deviceId=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.botToken}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        if (!res.ok) {
+          continue;
+        }
+        const data = (await res.json()) as Record<string, unknown>;
+        const parsed = extractRoomSignalsFromResponse(data);
+        if (parsed.booked !== undefined) {
+          booked = parsed.booked;
+        }
+        if (parsed.used !== undefined) {
+          used = parsed.used;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return { booked, used };
+  }
 }
 
 function mapConnectionStatus(connectionStatus?: string): boolean | undefined {
@@ -191,11 +238,11 @@ function mapConnectionStatus(connectionStatus?: string): boolean | undefined {
   if (!status) {
     return undefined;
   }
-  if (status.includes("connected") || status.includes("online")) {
-    return true;
-  }
   if (status.includes("disconnected") || status.includes("offline")) {
     return false;
+  }
+  if (status.includes("connected") || status.includes("online")) {
+    return true;
   }
   return undefined;
 }
@@ -275,6 +322,82 @@ function extractConferenceSnapshotFromResponse(data: Record<string, unknown>) {
     inCall,
     qos: extractQosFromCallPayload(payload)
   };
+}
+
+function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
+  const result = data.result;
+  const flat = walkEntries(result);
+  let booked: boolean | undefined;
+  let used: boolean | undefined;
+
+  for (const entry of flat) {
+    const path = entry.path;
+
+    if (
+      path.includes("peoplepresence") ||
+      path.includes("inuse") ||
+      path.includes("peoplecount.current") ||
+      path.includes("peoplecount") ||
+      path.includes("facecount")
+    ) {
+      const presence = toBooleanSignal(entry.value);
+      if (presence !== undefined) {
+        used = presence;
+      } else {
+        const n = toNumeric(entry.value);
+        if (n !== undefined) {
+          used = n > 0;
+        }
+      }
+    }
+
+    if (path.includes("booking") || path.includes("meeting")) {
+      const b = toBookingSignal(entry.value);
+      if (b !== undefined) {
+        booked = b;
+      }
+    }
+  }
+
+  return { booked, used };
+}
+
+function toBooleanSignal(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 0;
+  }
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["true", "yes", "on", "active", "detected", "present", "used"].includes(v)) {
+      return true;
+    }
+    if (["false", "no", "off", "idle", "none", "notdetected", "absent", "unused"].includes(v)) {
+      return false;
+    }
+  }
+  return undefined;
+}
+
+function toBookingSignal(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 0;
+  }
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["booked", "busy", "ongoing", "active", "inmeeting", "meeting", "reserved", "true"].includes(v)) {
+      return true;
+    }
+    if (["free", "available", "idle", "none", "notbooked", "false"].includes(v)) {
+      return false;
+    }
+  }
+  return undefined;
 }
 
 function toNumeric(value: unknown): number | undefined {

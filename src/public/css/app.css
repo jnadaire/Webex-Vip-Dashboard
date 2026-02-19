@@ -402,6 +402,13 @@ select,
   gap: 0.6rem;
 }
 
+.device-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
 .device-top strong {
   font-size: 1rem;
   display: inline-flex;
@@ -444,11 +451,39 @@ select,
 .fault {
   margin-top: 0.45rem;
   padding: 0.42rem;
-  border-left: 3px solid var(--warn);
-  background: rgba(242, 178, 54, 0.12);
   border-radius: 6px;
   font-size: 0.88rem;
+}
+
+.fault.fault-warning {
+  border-left: 3px solid var(--warn);
+  background: rgba(242, 178, 54, 0.12);
   color: #ffd8a6;
+}
+
+.fault.fault-critical {
+  border-left: 3px solid #ff6b61;
+  background: rgba(255, 107, 97, 0.14);
+  color: #ffd2ce;
+}
+
+.fault.fault-info {
+  border-left: 3px solid #5fa9ff;
+  background: rgba(95, 169, 255, 0.12);
+  color: #d7eaff;
+}
+
+.possible-crash-box {
+  margin-top: 0.45rem;
+  border: 1px solid rgba(255, 107, 97, 0.75);
+  background: rgba(255, 107, 97, 0.18);
+  color: #ffd8d4;
+  border-radius: 8px;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .device-tags {
@@ -456,6 +491,60 @@ select,
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.device-signal-pills {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.device-signal-pills.status-inline {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.state-pill {
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.74rem;
+  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.state-pill::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.state-pill.booked {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.state-pill.used {
+  color: #b8dbff;
+  border-color: rgba(25, 118, 210, 0.72);
+  background: rgba(25, 118, 210, 0.2);
+}
+
+.state-pill.available {
+  color: #c8ffd9;
+  border-color: rgba(46, 170, 95, 0.7);
+  background: rgba(46, 170, 95, 0.18);
+}
+
+.state-pill.unknown {
+  color: #ffd6d3;
+  border-color: rgba(255, 107, 97, 0.75);
+  background: rgba(255, 107, 97, 0.2);
 }
 
 .device-tag {

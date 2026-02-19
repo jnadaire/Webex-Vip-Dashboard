@@ -192,6 +192,36 @@ function getDeviceBadge(device) {
   return { className: "online", label: t("devices.badgeOnline") };
 }
 
+function isMeetingRoomDevice(device) {
+  const product = String(device?.product || "").toLowerCase();
+  return product.includes("desk pro");
+}
+
+function faultClass(fault) {
+  const code = String(fault?.code || "").toLowerCase();
+  const message = String(fault?.message || "").toLowerCase();
+  if (code.includes("possible_crash") || message.includes("possible crash") || fault?.severity === "critical") {
+    return "fault-critical";
+  }
+  if (fault?.severity === "info") {
+    return "fault-info";
+  }
+  return "fault-warning";
+}
+
+function shouldShowFault(device, fault) {
+  const combined = `${fault?.code || ""} ${fault?.message || ""}`.toLowerCase();
+  if (
+    device.status !== "offline" &&
+    (combined.includes("device is now offline") ||
+      combined.includes("device went offline") ||
+      combined.includes("online/offline"))
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function renderTagFilters() {
   const tags = getAvailableTags();
   const html = tags
@@ -260,6 +290,20 @@ function render() {
   els.devices.innerHTML = orderedDevices
     .map((d) => {
       const badge = getDeviceBadge(d);
+      const signalBadges = isMeetingRoomDevice(d)
+        ? [
+            d.booked ? `<span class="state-pill booked">${t("devices.booked")}</span>` : "",
+            d.status === "offline"
+              ? `<span class="state-pill unknown">${t("devices.unknownAvailability")}</span>`
+              : d.used === true
+                ? `<span class="state-pill used">${t("devices.used")}</span>`
+                : d.used === false
+                  ? `<span class="state-pill available">${t("devices.available")}</span>`
+                  : ""
+          ]
+            .filter(Boolean)
+            .join("")
+        : "";
       const qosAgeSec = secondsSince(d.qos?.updatedAt);
       const qosLive = d.inCall && d.qos;
       const qos = qosLive
@@ -282,11 +326,15 @@ function render() {
       const tagBadges = (d.tags || [])
         .map((tag) => `<span class="device-tag">${tag}</span>`)
         .join("");
-
       const faults = d.faults
+        .filter((f) => shouldShowFault(d, f))
         .slice(0, 3)
-        .map((f) => `<div class="fault">${f.code}: ${f.message}</div>`)
+        .map((f) => `<div class="fault ${faultClass(f)}">${f.code}: ${f.message}</div>`)
         .join("");
+      const possibleCrash = d.possibleCrash || (d.status === "offline" && d.used);
+      const possibleCrashBox = possibleCrash
+        ? `<div class="possible-crash-box">possible crash</div>`
+        : "";
 
       return `
       <div class="device">
@@ -295,10 +343,14 @@ function render() {
             <strong>${d.name}</strong>
             <div>${d.product || ""}</div>
           </div>
-          <span class="badge ${badge.className}">${badge.label}</span>
+          <div class="device-status-stack">
+            <span class="badge ${badge.className}">${badge.label}</span>
+            ${signalBadges ? `<div class="device-signal-pills status-inline">${signalBadges}</div>` : ""}
+          </div>
         </div>
         <div>${t("devices.since")} ${minutesSince(d.statusSince)} ${t("devices.minutes")}</div>
         <div>${d.inCall ? t("devices.inCall") : t("devices.idle")}</div>
+        ${possibleCrashBox}
         ${qos}
         <div class="device-tags">${tagBadges}</div>
         ${faults}
@@ -333,7 +385,8 @@ function render() {
 function renderAlerts() {
   const deviceById = new Map(devices.map((d) => [d.id, d]));
   const allAlertEvents = events
-    .filter((event) => event.type === "fault" || event.type === "status" || event.type === "call")
+    .filter((event) => event.type === "fault" || event.type === "status")
+    .filter((event) => isCurrentStatusEvent(event, deviceById.get(event.deviceId)))
     .filter((event) => !ignoredAlertIds.has(event.id));
 
   if (route === "alerts") {
@@ -344,7 +397,7 @@ function renderAlerts() {
   }
 
   const visibleEvents = allAlertEvents
-    .filter((event) => event.type === "fault" || event.type === "status" || event.type === "call")
+    .filter((event) => event.type === "fault" || event.type === "status")
     .filter((event) => {
       const device = deviceById.get(event.deviceId);
       if (!device) {
@@ -397,6 +450,10 @@ function formatAlertMessage(type, payload) {
     return payload.inCall ? t("alerts.callStarted") : t("alerts.callEnded");
   }
   if (type === "fault") {
+    const code = String(payload.code || "").toLowerCase();
+    if (code.includes("device_crash") || code.includes("crash")) {
+      return t("alerts.deviceCrashDetected");
+    }
     const msg = payload.message || payload.code || t("alerts.issueDetected");
     return `${t("alerts.issueDetected")}: ${msg}`;
   }
@@ -424,7 +481,8 @@ function setRoute(nextRoute) {
 
 function updateAlertsBadge() {
   const count = events
-    .filter((event) => event.type === "fault" || event.type === "status" || event.type === "call")
+    .filter((event) => event.type === "fault" || event.type === "status")
+    .filter((event) => isCurrentStatusEvent(event, devices.find((d) => d.id === event.deviceId)))
     .filter((event) => !ignoredAlertIds.has(event.id))
     .filter((event) => !seenAlertIds.has(event.id)).length;
 
@@ -437,6 +495,20 @@ function updateAlertsBadge() {
   }
   els.alertsNewBadge.classList.remove("hidden");
   els.alertsNewBadge.textContent = count > 99 ? "99+" : String(count);
+}
+
+function isCurrentStatusEvent(event, device) {
+  if (event.type !== "status") {
+    return true;
+  }
+  if (!device) {
+    return false;
+  }
+  const status = String(event.payload?.status || "").toLowerCase();
+  if (!status) {
+    return false;
+  }
+  return status === String(device.status || "").toLowerCase();
 }
 
 function applyTranslations() {

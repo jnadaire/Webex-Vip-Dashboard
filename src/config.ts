@@ -6,6 +6,10 @@ const configSchema = z.object({
   WEBEX_BOT_TOKEN: z.string().optional().default(""),
   WEBEX_WEBHOOK_SECRET: z.string().optional().default(""),
   WEBEX_ORG_ID: z.string().optional().default(""),
+  CRASH_ALERT_PATTERNS: z
+    .string()
+    .optional()
+    .default("crash,panic,kernel,fatal,core dump,reboot loop,unexpected restart"),
   POLL_INTERVAL_MS: z.coerce.number().default(10_000),
   CALL_METRICS_POLL_MS: z.coerce.number().default(10_000),
   USE_MOCK_DATA: z
@@ -30,3 +34,7 @@ export const readonlyUsers = new Set(
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
 );
+
+export const crashAlertPatterns = config.CRASH_ALERT_PATTERNS.split(",")
+  .map((v) => v.trim().toLowerCase())
+  .filter(Boolean);

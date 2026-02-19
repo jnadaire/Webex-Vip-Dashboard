@@ -34,6 +34,9 @@ export interface DeviceState {
   statusSince: string;
   lastSeenAt?: string;
   inCall: boolean;
+  booked?: boolean;
+  used?: boolean;
+  possibleCrash?: boolean;
   callStateUpdatedAt?: string;
   faults: DeviceFault[];
   qos?: QosMetrics;
@@ -71,6 +74,8 @@ export interface AdapterDevice {
 export interface AdapterCallMetrics {
   deviceId: string;
   inCall: boolean;
+  booked?: boolean;
+  used?: boolean;
   packetLossPct?: number;
   jitterMs?: number;
   latencyMs?: number;

@@ -5,6 +5,7 @@ import { DeviceStore } from "./store.js";
 import { InboundWebhookEvent } from "./types.js";
 import { auditLog } from "./audit.js";
 import { Observability } from "./observability.js";
+import { isCrashSignal } from "./crash.js";
 
 function verifySignature(rawBody: string, signature: string | undefined) {
   if (!config.WEBEX_WEBHOOK_SECRET) {
@@ -350,9 +351,12 @@ function extractFaultPayload(
     findByPath(["code", "alertcode", "alerttype", "type", "category", "name"]) || "DEVICE_ALERT";
   const candidateSeverity = findByPath(["severity", "level", "priority"]);
 
-  const code = candidateCode || "DEVICE_ALERT";
   const message = candidateMessage || "Device reported an issue";
-  const severity = inferFaultSeverity(candidateSeverity || data.severity || data.level || data.priority);
+  const crashDetected = isCrashSignal(candidateCode, message, texts, resourceText);
+  const code = crashDetected ? "DEVICE_CRASH" : candidateCode || "DEVICE_ALERT";
+  const severity = crashDetected
+    ? "critical"
+    : inferFaultSeverity(candidateSeverity || data.severity || data.level || data.priority);
 
   return { code, message, severity };
 }
