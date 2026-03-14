@@ -297,7 +297,7 @@ function render() {
               ? `<span class="state-pill unknown">${t("devices.unknownAvailability")}</span>`
               : d.used === true
                 ? `<span class="state-pill used">${t("devices.used")}</span>`
-                : d.used === false
+                : d.used === false && !d.booked
                   ? `<span class="state-pill available">${t("devices.available")}</span>`
                   : ""
           ]
