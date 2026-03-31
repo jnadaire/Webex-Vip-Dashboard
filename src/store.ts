@@ -43,6 +43,8 @@ export class DeviceStore {
       callDisplayName: prev?.callDisplayName,
       booked: prev?.booked,
       bookingStatus: prev?.bookingStatus,
+      bookingStatusSince: prev?.bookingStatusSince,
+      bookingStatusTimeStamp: prev?.bookingStatusTimeStamp,
       used: prev?.used,
       nextMeeting: prev?.nextMeeting,
       possibleCrash:
@@ -159,7 +161,8 @@ export class DeviceStore {
     booked?: boolean,
     used?: boolean,
     nextMeeting?: DeviceState["nextMeeting"],
-    bookingStatus?: string
+    bookingStatus?: string,
+    bookingStatusTimeStamp?: string
   ) {
     const current = this.devices.get(deviceId);
     if (!current) {
@@ -167,6 +170,13 @@ export class DeviceStore {
     }
     let changed = false;
     const peers = this.getRoomPeers(current);
+    const now = new Date().toISOString();
+    const nextBookingStatusSince =
+      typeof booked === "boolean" && current.booked !== booked
+        ? now
+        : (current.bookingStatus || "") !== (bookingStatus || "")
+          ? now
+          : current.bookingStatusSince;
     if (typeof booked === "boolean" && current.booked !== booked) {
       current.booked = booked;
       changed = true;
@@ -177,6 +187,14 @@ export class DeviceStore {
     }
     if ((current.bookingStatus || "") !== (bookingStatus || "")) {
       current.bookingStatus = bookingStatus;
+      changed = true;
+    }
+    if ((current.bookingStatusTimeStamp || "") !== (bookingStatusTimeStamp || "")) {
+      current.bookingStatusTimeStamp = bookingStatusTimeStamp;
+      changed = true;
+    }
+    if (current.bookingStatusSince !== nextBookingStatusSince) {
+      current.bookingStatusSince = nextBookingStatusSince;
       changed = true;
     }
     if (!sameMeeting(current.nextMeeting, nextMeeting)) {
@@ -194,6 +212,14 @@ export class DeviceStore {
       }
       if ((peer.bookingStatus || "") !== (bookingStatus || "")) {
         peer.bookingStatus = bookingStatus;
+        changed = true;
+      }
+      if ((peer.bookingStatusTimeStamp || "") !== (bookingStatusTimeStamp || "")) {
+        peer.bookingStatusTimeStamp = bookingStatusTimeStamp;
+        changed = true;
+      }
+      if (peer.bookingStatusSince !== nextBookingStatusSince) {
+        peer.bookingStatusSince = nextBookingStatusSince;
         changed = true;
       }
       if (!sameMeeting(peer.nextMeeting, nextMeeting)) {

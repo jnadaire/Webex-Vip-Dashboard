@@ -127,12 +127,59 @@ function formatMeetingTimeRange(meeting) {
   return endLabel ? `${dateLabel} ${startLabel} - ${endLabel}` : `${dateLabel} ${startLabel}`;
 }
 
+function tf(key, vars = {}) {
+  return Object.entries(vars).reduce(
+    (text, [name, value]) => text.replace(`{${name}}`, String(value)),
+    t(key)
+  );
+}
+
+function formatDateTime(isoDate) {
+  if (!isoDate) {
+    return "";
+  }
+  const value = new Date(isoDate);
+  const formatter = new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  return formatter.format(value);
+}
+
+function formatTime(isoDate) {
+  if (!isoDate) {
+    return "";
+  }
+  const value = new Date(isoDate);
+  const formatter = new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+  return formatter.format(value);
+}
+
+function formatDurationSince(isoDate) {
+  if (!isoDate) {
+    return "";
+  }
+  const minutes = minutesSince(isoDate);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  return rem === 0 ? `${hours} h` : `${hours} h ${rem} min`;
+}
+
 function getNextMeetingLabel(device) {
   if (device?.nextMeeting?.startAt) {
     return formatMeetingTimeRange(device.nextMeeting);
   }
-  if (String(device?.bookingStatus || "").toLowerCase() === "freeuntil") {
-    return t("devices.nextMeetingDetected");
+  if (["freeuntil", "bookeduntil"].includes(String(device?.bookingStatus || "").toLowerCase())) {
+    return t("devices.scheduledLaterToday");
   }
   return t("devices.noNextMeeting");
 }
@@ -276,11 +323,23 @@ function isMeetingRoomDevice(device) {
 
 function getBookingStatus(device) {
   const bookingStatus = String(device.bookingStatus || "").toLowerCase();
-  if (device.booked === true) {
-    return t("devices.bookedUntil");
+  const stamp = device?.bookingStatusTimeStamp;
+  const targetMinutes = stamp
+    ? Math.max(0, Math.ceil((new Date(stamp).getTime() - Date.now()) / 60_000))
+    : device?.bookingStatusSince
+        ? minutesSince(device.bookingStatusSince)
+        : 0;
+  if ((device.booked === true || bookingStatus === "bookeduntil") && stamp) {
+    return tf("devices.bookedUntilTime", { time: formatTime(stamp) });
+  }
+  if ((bookingStatus === "freeuntil" || device.booked === false) && stamp) {
+    return tf("devices.freeNextMeetingAt", { time: formatTime(stamp) });
+  }
+  if (device.booked === true || bookingStatus === "bookeduntil") {
+    return tf("devices.bookedForMinutes", { minutes: targetMinutes });
   }
   if (bookingStatus === "freeuntil" || device.booked === false) {
-    return t("devices.freeUntil");
+    return tf("devices.freeForMinutes", { minutes: targetMinutes });
   }
   return t("devices.unknownAvailability");
 }
@@ -403,18 +462,8 @@ function render() {
         ? `
           <div class="device-meeting">
             <div class="device-meeting-row">
-              <span class="device-meeting-label">${t("devices.bookingStatus")}</span>
               <strong>${getBookingStatus(d)}</strong>
             </div>
-            <div class="device-meeting-row">
-              <span class="device-meeting-label">${t("devices.nextMeeting")}</span>
-              <strong>${getNextMeetingLabel(d)}</strong>
-            </div>
-            ${
-              d.nextMeeting?.title
-                ? `<div class="device-meeting-title">${d.nextMeeting.title}</div>`
-                : ""
-            }
           </div>
         `
         : "";
@@ -434,9 +483,7 @@ function render() {
             </div>
           </div>
         `
-        : d.inCall
-          ? `<div class="qos-idle">${t("devices.qosPending")}</div>`
-          : "";
+        : "";
       const tagBadges = (d.tags || [])
         .map((tag) => `<span class="device-tag">${tag}</span>`)
         .join("");
@@ -835,3 +882,6 @@ bootstrap();
 setInterval(() => {
   refresh().catch(() => undefined);
 }, 10_000);
+setInterval(() => {
+  render();
+}, 60_000);

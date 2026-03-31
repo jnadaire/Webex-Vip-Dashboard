@@ -97,6 +97,7 @@ export class WebexApiAdapter implements WebexAdapter {
             callDisplayName: callContext.callDisplayName,
             booked: signals.booked,
             bookingStatus: signals.bookingStatus,
+            bookingStatusTimeStamp: signals.bookingStatusTimeStamp,
             used: signals.used ?? (inCall ? true : undefined),
             nextMeeting: signals.nextMeeting,
             packetLossPct: conference.qos.packetLossPct,
@@ -225,6 +226,7 @@ export class WebexApiAdapter implements WebexAdapter {
   private async fetchRoomSignals(deviceId: string): Promise<{
     booked?: boolean;
     bookingStatus?: string;
+    bookingStatusTimeStamp?: string;
     used?: boolean;
     nextMeeting?: AdapterCallMetrics["nextMeeting"];
   }> {
@@ -235,12 +237,15 @@ export class WebexApiAdapter implements WebexAdapter {
       "RoomAnalytics.PeopleCount",
       "Bookings",
       "Bookings.Availability",
+      "Bookings.Availability.Status",
+      "Bookings.Availability.*",
       "Bookings.Current",
       "Bookings.Next"
     ];
 
     let booked: boolean | undefined;
     let bookingStatus: string | undefined;
+    let bookingStatusTimeStamp: string | undefined;
     let used: boolean | undefined;
     let nextMeeting: AdapterCallMetrics["nextMeeting"];
 
@@ -266,6 +271,9 @@ export class WebexApiAdapter implements WebexAdapter {
         if (parsed.bookingStatus) {
           bookingStatus = parsed.bookingStatus;
         }
+        if (parsed.bookingStatusTimeStamp) {
+          bookingStatusTimeStamp = parsed.bookingStatusTimeStamp;
+        }
         if (parsed.used !== undefined) {
           used = parsed.used;
         }
@@ -277,7 +285,7 @@ export class WebexApiAdapter implements WebexAdapter {
       }
     }
 
-    return { booked, bookingStatus, used, nextMeeting };
+    return { booked, bookingStatus, bookingStatusTimeStamp, used, nextMeeting };
   }
 }
 
@@ -377,6 +385,7 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
   const flat = walkEntries(result);
   let booked: boolean | undefined;
   let bookingStatus: string | undefined;
+  let bookingStatusTimeStamp: string | undefined;
   let used: boolean | undefined;
 
   for (const entry of flat) {
@@ -404,6 +413,12 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
       if (path.endsWith("status") && typeof entry.value === "string") {
         bookingStatus = String(entry.value).trim().toLowerCase();
       }
+      if (path.endsWith("timestamp") && typeof entry.value === "string") {
+        const time = new Date(entry.value).getTime();
+        if (!Number.isNaN(time)) {
+          bookingStatusTimeStamp = new Date(time).toISOString();
+        }
+      }
       const b = toBookingSignal(entry.value);
       if (b !== undefined) {
         booked = b;
@@ -414,6 +429,7 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
   return {
     booked,
     bookingStatus,
+    bookingStatusTimeStamp,
     used,
     nextMeeting: extractNextMeeting(result)
   };

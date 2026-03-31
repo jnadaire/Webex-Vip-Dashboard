@@ -46,6 +46,8 @@ export interface DeviceState {
   callDisplayName?: string;
   booked?: boolean;
   bookingStatus?: string;
+  bookingStatusSince?: string;
+  bookingStatusTimeStamp?: string;
   used?: boolean;
   nextMeeting?: DeviceMeeting;
   possibleCrash?: boolean;
@@ -92,6 +94,7 @@ export interface AdapterCallMetrics {
   callDisplayName?: string;
   booked?: boolean;
   bookingStatus?: string;
+  bookingStatusTimeStamp?: string;
   used?: boolean;
   nextMeeting?: DeviceMeeting;
   packetLossPct?: number;

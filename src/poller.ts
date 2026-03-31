@@ -57,7 +57,8 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
           metric.booked,
           metric.used,
           metric.nextMeeting,
-          metric.bookingStatus
+          metric.bookingStatus,
+          metric.bookingStatusTimeStamp
         );
         const hasQos =
           metric.packetLossPct !== undefined ||
