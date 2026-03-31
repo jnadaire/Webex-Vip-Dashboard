@@ -321,6 +321,35 @@ function isMeetingRoomDevice(device) {
   );
 }
 
+function getRoomStateBadge(device) {
+  if (!isMeetingRoomDevice(device)) {
+    return null;
+  }
+
+  if (device.status === "offline") {
+    return { className: "unknown", label: t("devices.unknownAvailability") };
+  }
+
+  const bookingStatus = String(device.bookingStatus || "").toLowerCase();
+  const booked = device.booked === true || bookingStatus === "bookeduntil";
+  const used = device.used;
+
+  if (used === true && booked) {
+    return { className: "used-booked", label: t("devices.usedAndBooked") };
+  }
+  if (used === true) {
+    return { className: "used", label: t("devices.used") };
+  }
+  if (used === false && booked) {
+    return { className: "empty-booked", label: t("devices.emptyButBooked") };
+  }
+  if (used === false && !booked) {
+    return { className: "available", label: t("devices.available") };
+  }
+
+  return { className: "unknown", label: t("devices.unknownAvailability") };
+}
+
 function getBookingStatus(device) {
   const bookingStatus = String(device.bookingStatus || "").toLowerCase();
   const stamp = device?.bookingStatusTimeStamp;
@@ -437,6 +466,7 @@ function render() {
   els.devices.innerHTML = orderedDevices
     .map((d) => {
       const badge = getDeviceBadge(d);
+      const roomStateBadge = getRoomStateBadge(d);
       const associatedNavigators = getAssociatedNavigators(d);
       const navigatorDotClass =
         associatedNavigators[0]?.status === "online"
@@ -444,20 +474,6 @@ function render() {
           : associatedNavigators[0]?.status === "offline"
             ? "offline"
             : "unknown";
-      const signalBadges = isMeetingRoomDevice(d)
-        ? [
-            d.booked ? `<span class="state-pill booked">${t("devices.booked")}</span>` : "",
-            d.status === "offline"
-              ? `<span class="state-pill unknown">${t("devices.unknownAvailability")}</span>`
-              : d.used === true
-                ? `<span class="state-pill used">${t("devices.used")}</span>`
-                : d.used === false && !d.booked
-                  ? `<span class="state-pill available">${t("devices.available")}</span>`
-                  : ""
-          ]
-            .filter(Boolean)
-            .join("")
-        : "";
       const meetingMeta = isMeetingRoomDevice(d)
         ? `
           <div class="device-meeting">
@@ -511,7 +527,11 @@ function render() {
           </div>
           <div class="device-status-stack">
             <span class="badge ${badge.className}">${badge.label}</span>
-            ${signalBadges ? `<div class="device-signal-pills status-inline">${signalBadges}</div>` : ""}
+            ${
+              roomStateBadge
+                ? `<div class="device-signal-pills status-inline"><span class="state-pill ${roomStateBadge.className}">${roomStateBadge.label}</span></div>`
+                : ""
+            }
           </div>
         </div>
         <div>${t("devices.since")} ${minutesSince(d.statusSince)} ${t("devices.minutes")}</div>

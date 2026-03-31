@@ -442,12 +442,43 @@ function extractCallContextFromResponse(data: Record<string, unknown>) {
   const conferenceCall = Array.isArray(conference?.Call)
     ? ((conference?.Call as unknown[])[0] as Record<string, unknown> | undefined)
     : undefined;
+  const directCallProtocol = typeof call?.Protocol === "string" ? call.Protocol : undefined;
+  const selectedCallProtocol =
+    typeof conference?.SelectedCallProtocol === "string" ? conference.SelectedCallProtocol : undefined;
+  const rawMeetingPlatform =
+    typeof conferenceCall?.MeetingPlatform === "string" ? conferenceCall.MeetingPlatform : undefined;
+  const webexInviteLink =
+    conferenceCall?.Webex && typeof conferenceCall.Webex === "object"
+      ? typeof (conferenceCall.Webex as Record<string, unknown>).MeetingInviteLink === "string"
+        ? ((conferenceCall.Webex as Record<string, unknown>).MeetingInviteLink as string)
+        : undefined
+      : undefined;
+  const normalizedMeetingPlatform = normalizeMeetingPlatform(
+    rawMeetingPlatform,
+    directCallProtocol || selectedCallProtocol,
+    webexInviteLink
+  );
 
   return {
-    callProtocol: typeof call?.Protocol === "string" ? call.Protocol : undefined,
+    callProtocol: directCallProtocol || selectedCallProtocol,
     callDisplayName: typeof call?.DisplayName === "string" ? call.DisplayName : undefined,
-    meetingPlatform: typeof conferenceCall?.MeetingPlatform === "string" ? conferenceCall.MeetingPlatform : undefined
+    meetingPlatform: normalizedMeetingPlatform
   };
+}
+
+function normalizeMeetingPlatform(meetingPlatform?: string, protocol?: string, webexInviteLink?: string) {
+  const platform = String(meetingPlatform || "").trim();
+  const normalizedPlatform = platform.toLowerCase();
+  const normalizedProtocol = String(protocol || "").trim().toLowerCase();
+  const hasWebexInvite = String(webexInviteLink || "").toLowerCase().includes("webex.com");
+
+  if (normalizedPlatform && normalizedPlatform !== "unknown") {
+    return platform;
+  }
+  if (normalizedProtocol === "spark" || hasWebexInvite) {
+    return "Webex";
+  }
+  return platform || undefined;
 }
 
 function extractNextMeeting(value: unknown) {

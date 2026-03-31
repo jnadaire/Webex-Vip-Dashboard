@@ -523,13 +523,13 @@ select,
   background: currentColor;
 }
 
-.state-pill.booked {
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.16);
+.state-pill.used {
+  color: #b8dbff;
+  border-color: rgba(25, 118, 210, 0.72);
+  background: rgba(25, 118, 210, 0.2);
 }
 
-.state-pill.used {
+.state-pill.used-booked {
   color: #b8dbff;
   border-color: rgba(25, 118, 210, 0.72);
   background: rgba(25, 118, 210, 0.2);
@@ -539,6 +539,12 @@ select,
   color: #c8ffd9;
   border-color: rgba(46, 170, 95, 0.7);
   background: rgba(46, 170, 95, 0.18);
+}
+
+.state-pill.empty-booked {
+  color: #ffe0a8;
+  border-color: rgba(242, 178, 54, 0.78);
+  background: rgba(242, 178, 54, 0.2);
 }
 
 .state-pill.unknown {
