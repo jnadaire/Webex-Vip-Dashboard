@@ -104,6 +104,39 @@ function formatKbps(value) {
   return `${Number(value).toFixed(0)} kbps`;
 }
 
+function formatMeetingTimeRange(meeting) {
+  if (!meeting?.startAt) {
+    return t("devices.noNextMeeting");
+  }
+
+  const start = new Date(meeting.startAt);
+  const end = meeting.endAt ? new Date(meeting.endAt) : null;
+  const dayFormatter = new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
+  const timeFormatter = new Intl.DateTimeFormat(document.documentElement.lang || navigator.language, {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const dateLabel = dayFormatter.format(start);
+  const startLabel = timeFormatter.format(start);
+  const endLabel = end ? timeFormatter.format(end) : null;
+  return endLabel ? `${dateLabel} ${startLabel} - ${endLabel}` : `${dateLabel} ${startLabel}`;
+}
+
+function getNextMeetingLabel(device) {
+  if (device?.nextMeeting?.startAt) {
+    return formatMeetingTimeRange(device.nextMeeting);
+  }
+  if (String(device?.bookingStatus || "").toLowerCase() === "freeuntil") {
+    return t("devices.nextMeetingDetected");
+  }
+  return t("devices.noNextMeeting");
+}
+
 function metricLevel(metric, value) {
   if (value === undefined || value === null || Number.isNaN(Number(value))) {
     return "qos-na";
@@ -128,13 +161,28 @@ function metricLevel(metric, value) {
 }
 
 function getAvailableTags() {
-  return [...new Set(devices.flatMap((d) => d.tags || []).filter(Boolean))].sort((a, b) =>
+  return [...new Set(getDisplayDevices().flatMap((d) => d.tags || []).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b)
   );
 }
 
 function getFilteredDevices() {
-  return devices.filter((d) => matchesActiveFilters(d));
+  return getDisplayDevices().filter((d) => matchesActiveFilters(d));
+}
+
+function isRoomNavigator(device) {
+  return String(device?.product || "").toLowerCase().includes("room navigator");
+}
+
+function getAssociatedNavigators(device) {
+  if (!device?.roomId) {
+    return [];
+  }
+  return devices.filter((candidate) => candidate.roomId === device.roomId && isRoomNavigator(candidate));
+}
+
+function getDisplayDevices() {
+  return devices.filter((d) => !isRoomNavigator(d));
 }
 
 function matchesActiveFilters(device) {
@@ -177,11 +225,13 @@ function matchStatusFilter(device, filterId) {
 
 function getDeviceBadge(device) {
   const issues = hasIssues(device);
+  const platform = String(device.meetingPlatform || "").toLowerCase();
+  const protocol = String(device.callProtocol || "").toLowerCase();
   if (device.inCall && issues) {
-    return { className: "in-call-issues", label: t("devices.badgeInCallWithIssues") };
+    return { className: "in-call-issues", label: getInCallLabel(platform, protocol) };
   }
   if (device.inCall) {
-    return { className: "in-call", label: t("devices.badgeInCall") };
+    return { className: "in-call", label: getInCallLabel(platform, protocol) };
   }
   if (device.status === "offline") {
     return { className: "offline", label: t("devices.badgeOffline") };
@@ -192,9 +242,47 @@ function getDeviceBadge(device) {
   return { className: "online", label: t("devices.badgeOnline") };
 }
 
+function getInCallLabel(platform, protocol) {
+  if (platform === "googlemeet") {
+    return t("devices.platformGoogleMeet");
+  }
+  if (platform === "zoom") {
+    return t("devices.platformZoom");
+  }
+  if (platform === "microsoftteams") {
+    return t("devices.platformMicrosoftTeams");
+  }
+  if (platform === "webex") {
+    return t("devices.platformWebex");
+  }
+  if (protocol === "webrtc") {
+    return t("devices.platformWebRTC");
+  }
+  return t("devices.callStatusGeneric");
+}
+
 function isMeetingRoomDevice(device) {
   const product = String(device?.product || "").toLowerCase();
-  return product.includes("desk pro");
+  return (
+    !!device?.booked ||
+    device?.used !== undefined ||
+    !!device?.nextMeeting ||
+    product.includes("desk") ||
+    product.includes("room") ||
+    product.includes("board") ||
+    product.includes("navigator")
+  );
+}
+
+function getBookingStatus(device) {
+  const bookingStatus = String(device.bookingStatus || "").toLowerCase();
+  if (device.booked === true) {
+    return t("devices.bookedUntil");
+  }
+  if (bookingStatus === "freeuntil" || device.booked === false) {
+    return t("devices.freeUntil");
+  }
+  return t("devices.unknownAvailability");
 }
 
 function faultClass(fault) {
@@ -241,7 +329,7 @@ function renderTagFilters() {
 
 function renderStatusFilters() {
   const counts = Object.fromEntries(
-    STATUS_FILTERS.map((f) => [f.id, devices.filter((d) => matchStatusFilter(d, f.id)).length])
+    STATUS_FILTERS.map((f) => [f.id, getDisplayDevices().filter((d) => matchStatusFilter(d, f.id)).length])
   );
   els.statusFilters.innerHTML = STATUS_FILTERS.map((f) => {
     const active = selectedStatusFilter === f.id ? "active" : "";
@@ -253,7 +341,7 @@ function renderStatusFilters() {
 }
 
 function getAvailableTypes() {
-  return [...new Set(devices.map((d) => d.product || "").filter(Boolean))].sort((a, b) =>
+  return [...new Set(getDisplayDevices().map((d) => d.product || "").filter(Boolean))].sort((a, b) =>
     a.localeCompare(b)
   );
 }
@@ -263,7 +351,7 @@ function renderTypeFilters() {
   els.typeFilters.innerHTML = types
     .map((type) => {
       const active = selectedTypes.has(type) ? "active" : "";
-      const count = devices.filter((d) => (d.product || "") === type).length;
+      const count = getDisplayDevices().filter((d) => (d.product || "") === type).length;
       return `<button type="button" class="type-chip ${active}" data-type="${type}">
         <span>${type}</span><strong>${count}</strong>
       </button>`;
@@ -290,6 +378,13 @@ function render() {
   els.devices.innerHTML = orderedDevices
     .map((d) => {
       const badge = getDeviceBadge(d);
+      const associatedNavigators = getAssociatedNavigators(d);
+      const navigatorDotClass =
+        associatedNavigators[0]?.status === "online"
+          ? "online"
+          : associatedNavigators[0]?.status === "offline"
+            ? "offline"
+            : "unknown";
       const signalBadges = isMeetingRoomDevice(d)
         ? [
             d.booked ? `<span class="state-pill booked">${t("devices.booked")}</span>` : "",
@@ -303,6 +398,25 @@ function render() {
           ]
             .filter(Boolean)
             .join("")
+        : "";
+      const meetingMeta = isMeetingRoomDevice(d)
+        ? `
+          <div class="device-meeting">
+            <div class="device-meeting-row">
+              <span class="device-meeting-label">${t("devices.bookingStatus")}</span>
+              <strong>${getBookingStatus(d)}</strong>
+            </div>
+            <div class="device-meeting-row">
+              <span class="device-meeting-label">${t("devices.nextMeeting")}</span>
+              <strong>${getNextMeetingLabel(d)}</strong>
+            </div>
+            ${
+              d.nextMeeting?.title
+                ? `<div class="device-meeting-title">${d.nextMeeting.title}</div>`
+                : ""
+            }
+          </div>
+        `
         : "";
       const qosAgeSec = secondsSince(d.qos?.updatedAt);
       const qosLive = d.inCall && d.qos;
@@ -322,7 +436,7 @@ function render() {
         `
         : d.inCall
           ? `<div class="qos-idle">${t("devices.qosPending")}</div>`
-          : `<div class="qos-idle">${t("devices.noQos")}</div>`;
+          : "";
       const tagBadges = (d.tags || [])
         .map((tag) => `<span class="device-tag">${tag}</span>`)
         .join("");
@@ -342,6 +456,11 @@ function render() {
           <div>
             <strong>${d.name}</strong>
             <div>${d.product || ""}</div>
+            ${
+              associatedNavigators.length > 0
+                ? `<div class="device-associated-label"><span class="device-status-dot ${navigatorDotClass}"></span>${t("devices.associatedNavigator")}</div>`
+                : ""
+            }
           </div>
           <div class="device-status-stack">
             <span class="badge ${badge.className}">${badge.label}</span>
@@ -349,7 +468,7 @@ function render() {
           </div>
         </div>
         <div>${t("devices.since")} ${minutesSince(d.statusSince)} ${t("devices.minutes")}</div>
-        <div>${d.inCall ? t("devices.inCall") : t("devices.idle")}</div>
+        ${meetingMeta}
         ${possibleCrashBox}
         ${qos}
         <div class="device-tags">${tagBadges}</div>

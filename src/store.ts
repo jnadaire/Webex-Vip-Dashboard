@@ -27,6 +27,7 @@ export class DeviceStore {
       id: partial.id,
       name: partial.name,
       tags: [...new Set((partial.tags || prev?.tags || []).filter(Boolean))],
+      roomId: partial.roomId,
       workspace: partial.workspace,
       product: partial.product,
       software: partial.software,
@@ -37,8 +38,13 @@ export class DeviceStore {
           : partial.statusSince || now,
       lastSeenAt: partial.lastSeenAt,
       inCall: prev?.inCall ?? false,
+      callProtocol: prev?.callProtocol,
+      meetingPlatform: prev?.meetingPlatform,
+      callDisplayName: prev?.callDisplayName,
       booked: prev?.booked,
+      bookingStatus: prev?.bookingStatus,
       used: prev?.used,
+      nextMeeting: prev?.nextMeeting,
       possibleCrash:
         partial.status === "offline"
           ? (prev?.possibleCrash ?? false)
@@ -92,7 +98,16 @@ export class DeviceStore {
     return next;
   }
 
-  setCallState(deviceId: string, inCall: boolean, qos?: QosMetrics) {
+  setCallState(
+    deviceId: string,
+    inCall: boolean,
+    qos?: QosMetrics,
+    callContext?: {
+      callProtocol?: string;
+      meetingPlatform?: string;
+      callDisplayName?: string;
+    }
+  ) {
     const current = this.devices.get(deviceId);
     if (!current) {
       return;
@@ -100,8 +115,15 @@ export class DeviceStore {
     const now = new Date().toISOString();
     const callChanged = current.inCall !== inCall;
     const qosChanged = qos ? !sameQos(current.qos, qos) : false;
+    const contextChanged =
+      current.callProtocol !== (inCall ? callContext?.callProtocol : undefined) ||
+      current.meetingPlatform !== (inCall ? callContext?.meetingPlatform : undefined) ||
+      current.callDisplayName !== (inCall ? callContext?.callDisplayName : undefined);
 
     current.inCall = inCall;
+    current.callProtocol = inCall ? callContext?.callProtocol : undefined;
+    current.meetingPlatform = inCall ? callContext?.meetingPlatform : undefined;
+    current.callDisplayName = inCall ? callContext?.callDisplayName : undefined;
     if (callChanged) {
       current.callStateUpdatedAt = now;
     }
@@ -127,17 +149,24 @@ export class DeviceStore {
         payload: { inCall }
       });
     }
-    if (callChanged || qosChanged) {
+    if (callChanged || qosChanged || contextChanged) {
       this.notifyListeners();
     }
   }
 
-  setUsageState(deviceId: string, booked?: boolean, used?: boolean) {
+  setUsageState(
+    deviceId: string,
+    booked?: boolean,
+    used?: boolean,
+    nextMeeting?: DeviceState["nextMeeting"],
+    bookingStatus?: string
+  ) {
     const current = this.devices.get(deviceId);
     if (!current) {
       return;
     }
     let changed = false;
+    const peers = this.getRoomPeers(current);
     if (typeof booked === "boolean" && current.booked !== booked) {
       current.booked = booked;
       changed = true;
@@ -145,6 +174,35 @@ export class DeviceStore {
     if (typeof used === "boolean" && current.used !== used) {
       current.used = used;
       changed = true;
+    }
+    if ((current.bookingStatus || "") !== (bookingStatus || "")) {
+      current.bookingStatus = bookingStatus;
+      changed = true;
+    }
+    if (!sameMeeting(current.nextMeeting, nextMeeting)) {
+      current.nextMeeting = nextMeeting;
+      changed = true;
+    }
+    for (const peer of peers) {
+      if (typeof booked === "boolean" && peer.booked !== booked) {
+        peer.booked = booked;
+        changed = true;
+      }
+      if (typeof used === "boolean" && peer.used !== used) {
+        peer.used = used;
+        changed = true;
+      }
+      if ((peer.bookingStatus || "") !== (bookingStatus || "")) {
+        peer.bookingStatus = bookingStatus;
+        changed = true;
+      }
+      if (!sameMeeting(peer.nextMeeting, nextMeeting)) {
+        peer.nextMeeting = nextMeeting;
+        changed = true;
+      }
+      if (changed) {
+        peer.updatedAt = new Date().toISOString();
+      }
     }
     if (!changed) {
       return;
@@ -255,6 +313,13 @@ export class DeviceStore {
     };
   }
 
+  private getRoomPeers(current: DeviceState) {
+    if (!current.roomId) {
+      return [];
+    }
+    return [...this.devices.values()].filter((device) => device.id !== current.id && device.roomId === current.roomId);
+  }
+
   processWebhook(event: InboundWebhookEvent) {
     const now = Date.now();
     this.cleanupSeenEvents(now);
@@ -287,6 +352,10 @@ export class DeviceStore {
       listener();
     }
   }
+}
+
+function sameMeeting(a?: DeviceState["nextMeeting"], b?: DeviceState["nextMeeting"]) {
+  return a?.startAt === b?.startAt && a?.endAt === b?.endAt && a?.title === b?.title;
 }
 
 function mapSystemFaultMessage(code: string) {

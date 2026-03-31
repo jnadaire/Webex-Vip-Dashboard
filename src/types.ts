@@ -23,10 +23,17 @@ export interface QosMetrics {
   updatedAt: string;
 }
 
+export interface DeviceMeeting {
+  title?: string;
+  startAt: string;
+  endAt?: string;
+}
+
 export interface DeviceState {
   id: string;
   name: string;
   tags: string[];
+  roomId?: string;
   workspace?: string;
   product?: string;
   software?: string;
@@ -34,8 +41,13 @@ export interface DeviceState {
   statusSince: string;
   lastSeenAt?: string;
   inCall: boolean;
+  callProtocol?: string;
+  meetingPlatform?: string;
+  callDisplayName?: string;
   booked?: boolean;
+  bookingStatus?: string;
   used?: boolean;
+  nextMeeting?: DeviceMeeting;
   possibleCrash?: boolean;
   callStateUpdatedAt?: string;
   faults: DeviceFault[];
@@ -63,6 +75,7 @@ export interface AdapterDevice {
   id: string;
   name: string;
   tags?: string[];
+  roomId?: string;
   workspace?: string;
   product?: string;
   software?: string;
@@ -74,8 +87,13 @@ export interface AdapterDevice {
 export interface AdapterCallMetrics {
   deviceId: string;
   inCall: boolean;
+  callProtocol?: string;
+  meetingPlatform?: string;
+  callDisplayName?: string;
   booked?: boolean;
+  bookingStatus?: string;
   used?: boolean;
+  nextMeeting?: DeviceMeeting;
   packetLossPct?: number;
   jitterMs?: number;
   latencyMs?: number;

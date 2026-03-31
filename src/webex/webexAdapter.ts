@@ -5,6 +5,8 @@ interface WebexDeviceApiResponse {
   items?: Array<{
     id: string;
     displayName?: string;
+    placeId?: string;
+    workspaceId?: string;
     tags?: string[];
     workspaceLocationId?: string;
     product?: string;
@@ -60,6 +62,7 @@ export class WebexApiAdapter implements WebexAdapter {
       id: item.id,
       name: item.displayName || item.id,
       tags: (item.tags || []).filter((t) => typeof t === "string"),
+      roomId: item.workspaceId || item.placeId,
       workspace: item.workspaceLocationId,
       product: item.product,
       software: item.software,
@@ -77,6 +80,7 @@ export class WebexApiAdapter implements WebexAdapter {
         try {
           const inCallFromActive = await this.fetchInCallFromActiveCalls(deviceId);
           const conference = await this.fetchConferenceSnapshot(deviceId);
+          const callContext = await this.fetchCallContext(deviceId);
           const inCall =
             inCallFromActive !== undefined ? inCallFromActive || conference.inCall : conference.inCall;
           const signals = await this.fetchRoomSignals(deviceId);
@@ -88,8 +92,13 @@ export class WebexApiAdapter implements WebexAdapter {
           metrics.push({
             deviceId,
             inCall,
+            callProtocol: callContext.callProtocol,
+            meetingPlatform: callContext.meetingPlatform,
+            callDisplayName: callContext.callDisplayName,
             booked: signals.booked,
+            bookingStatus: signals.bookingStatus,
             used: signals.used ?? (inCall ? true : undefined),
+            nextMeeting: signals.nextMeeting,
             packetLossPct: conference.qos.packetLossPct,
             jitterMs: conference.qos.jitterMs,
             latencyMs: conference.qos.latencyMs,
@@ -188,7 +197,37 @@ export class WebexApiAdapter implements WebexAdapter {
     return { inCall, qos };
   }
 
-  private async fetchRoomSignals(deviceId: string): Promise<{ booked?: boolean; used?: boolean }> {
+  private async fetchCallContext(deviceId: string): Promise<{
+    callProtocol?: string;
+    meetingPlatform?: string;
+    callDisplayName?: string;
+  }> {
+    try {
+      const res = await fetch(
+        `https://webexapis.com/v1/xapi/status?deviceId=${encodeURIComponent(deviceId)}&name=Call.*&name=Conference.*`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.botToken}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      if (!res.ok) {
+        return {};
+      }
+      const data = (await res.json()) as Record<string, unknown>;
+      return extractCallContextFromResponse(data);
+    } catch {
+      return {};
+    }
+  }
+
+  private async fetchRoomSignals(deviceId: string): Promise<{
+    booked?: boolean;
+    bookingStatus?: string;
+    used?: boolean;
+    nextMeeting?: AdapterCallMetrics["nextMeeting"];
+  }> {
     const names = [
       "RoomAnalytics",
       "RoomAnalytics.PeoplePresence",
@@ -196,11 +235,14 @@ export class WebexApiAdapter implements WebexAdapter {
       "RoomAnalytics.PeopleCount",
       "Bookings",
       "Bookings.Availability",
-      "Bookings.Current"
+      "Bookings.Current",
+      "Bookings.Next"
     ];
 
     let booked: boolean | undefined;
+    let bookingStatus: string | undefined;
     let used: boolean | undefined;
+    let nextMeeting: AdapterCallMetrics["nextMeeting"];
 
     for (const name of names) {
       try {
@@ -221,15 +263,21 @@ export class WebexApiAdapter implements WebexAdapter {
         if (parsed.booked !== undefined) {
           booked = parsed.booked;
         }
+        if (parsed.bookingStatus) {
+          bookingStatus = parsed.bookingStatus;
+        }
         if (parsed.used !== undefined) {
           used = parsed.used;
+        }
+        if (!nextMeeting && parsed.nextMeeting) {
+          nextMeeting = parsed.nextMeeting;
         }
       } catch {
         continue;
       }
     }
 
-    return { booked, used };
+    return { booked, bookingStatus, used, nextMeeting };
   }
 }
 
@@ -328,6 +376,7 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
   const result = data.result;
   const flat = walkEntries(result);
   let booked: boolean | undefined;
+  let bookingStatus: string | undefined;
   let used: boolean | undefined;
 
   for (const entry of flat) {
@@ -352,6 +401,9 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
     }
 
     if (path.includes("booking") || path.includes("meeting")) {
+      if (path.endsWith("status") && typeof entry.value === "string") {
+        bookingStatus = String(entry.value).trim().toLowerCase();
+      }
       const b = toBookingSignal(entry.value);
       if (b !== undefined) {
         booked = b;
@@ -359,7 +411,91 @@ function extractRoomSignalsFromResponse(data: Record<string, unknown>) {
     }
   }
 
-  return { booked, used };
+  return {
+    booked,
+    bookingStatus,
+    used,
+    nextMeeting: extractNextMeeting(result)
+  };
+}
+
+function extractCallContextFromResponse(data: Record<string, unknown>) {
+  const result = (data.result || {}) as Record<string, unknown>;
+  const call = Array.isArray(result.Call) ? (result.Call[0] as Record<string, unknown> | undefined) : undefined;
+  const conference = result.Conference as Record<string, unknown> | undefined;
+  const conferenceCall = Array.isArray(conference?.Call)
+    ? ((conference?.Call as unknown[])[0] as Record<string, unknown> | undefined)
+    : undefined;
+
+  return {
+    callProtocol: typeof call?.Protocol === "string" ? call.Protocol : undefined,
+    callDisplayName: typeof call?.DisplayName === "string" ? call.DisplayName : undefined,
+    meetingPlatform: typeof conferenceCall?.MeetingPlatform === "string" ? conferenceCall.MeetingPlatform : undefined
+  };
+}
+
+function extractNextMeeting(value: unknown) {
+  const candidates = collectMeetingCandidates(value)
+    .map((candidate) => {
+      const startAt = getDateLikeField(candidate, ["starttime", "startdatetime", "startdate", "start"]);
+      if (!startAt) {
+        return undefined;
+      }
+
+      const endAt = getDateLikeField(candidate, ["endtime", "enddatetime", "enddate", "end"]);
+      const title = getStringLikeField(candidate, ["title", "subject", "meetingtitle", "name"]);
+      return { title, startAt, endAt };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => !!candidate)
+    .filter((candidate) => new Date(candidate.startAt).getTime() > Date.now())
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+  return candidates[0];
+}
+
+function collectMeetingCandidates(value: unknown, path = ""): Record<string, unknown>[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const node = value as Record<string, unknown>;
+  const results: Record<string, unknown>[] = [];
+  const normalizedPath = path.toLowerCase();
+  if (normalizedPath.includes("booking") || normalizedPath.includes("meeting")) {
+    results.push(node);
+  }
+
+  for (const [key, child] of Object.entries(node)) {
+    results.push(...collectMeetingCandidates(child, `${path}.${key}`));
+  }
+
+  return results;
+}
+
+function getDateLikeField(node: Record<string, unknown>, names: string[]) {
+  for (const [key, value] of Object.entries(node)) {
+    if (!names.includes(key.toLowerCase()) || typeof value !== "string") {
+      continue;
+    }
+    const time = new Date(value).getTime();
+    if (!Number.isNaN(time)) {
+      return new Date(time).toISOString();
+    }
+  }
+  return undefined;
+}
+
+function getStringLikeField(node: Record<string, unknown>, names: string[]) {
+  for (const [key, value] of Object.entries(node)) {
+    if (!names.includes(key.toLowerCase()) || typeof value !== "string") {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
 }
 
 function toBooleanSignal(value: unknown): boolean | undefined {
@@ -393,7 +529,7 @@ function toBookingSignal(value: unknown): boolean | undefined {
     if (["booked", "busy", "ongoing", "active", "inmeeting", "meeting", "reserved", "true"].includes(v)) {
       return true;
     }
-    if (["free", "available", "idle", "none", "notbooked", "false"].includes(v)) {
+    if (["free", "freeuntil", "available", "idle", "none", "notbooked", "false"].includes(v)) {
       return false;
     }
   }

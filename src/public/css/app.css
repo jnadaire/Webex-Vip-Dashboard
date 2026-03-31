@@ -556,6 +556,65 @@ select,
   background: rgba(0, 160, 209, 0.1);
 }
 
+.device-meeting {
+  margin-top: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.6rem 0.7rem;
+}
+
+.device-meeting-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.device-meeting-row + .device-meeting-row {
+  margin-top: 0.35rem;
+}
+
+.device-meeting-label {
+  color: var(--ink-faint);
+}
+
+.device-meeting-title {
+  margin-top: 0.45rem;
+  color: #c8f3ff;
+  font-size: 0.82rem;
+}
+
+.device-associated-label {
+  margin-top: 0.3rem;
+  color: #8adff8;
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.device-status-dot {
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.device-status-dot.online {
+  background: #2dcc70;
+}
+
+.device-status-dot.offline {
+  background: #ff6b61;
+}
+
+.device-status-dot.unknown {
+  background: #ffb020;
+}
+
 .qos-live {
   margin-top: 0.5rem;
   border: 1px solid rgba(0, 160, 209, 0.45);

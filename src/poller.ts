@@ -17,6 +17,7 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
           id: device.id,
           name: device.name,
           tags: device.tags || [],
+          roomId: device.roomId,
           workspace: device.workspace,
           product: device.product,
           software: device.software,
@@ -51,7 +52,13 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
       }
       const metrics = await adapter.fetchCallMetrics(deviceIds);
       for (const metric of metrics) {
-        store.setUsageState(metric.deviceId, metric.booked, metric.used);
+        store.setUsageState(
+          metric.deviceId,
+          metric.booked,
+          metric.used,
+          metric.nextMeeting,
+          metric.bookingStatus
+        );
         const hasQos =
           metric.packetLossPct !== undefined ||
           metric.jitterMs !== undefined ||
@@ -77,22 +84,27 @@ export function startPolling(store: DeviceStore, adapter: WebexAdapter) {
                   txBandwidthKbps: metric.txBandwidthKbps,
                   updatedAt: new Date().toISOString()
                 }
-              : undefined
+              : undefined,
+            {
+              callProtocol: metric.callProtocol,
+              meetingPlatform: metric.meetingPlatform,
+              callDisplayName: metric.callDisplayName
+            }
           );
           continue;
         }
 
         if (hasQos) {
           store.setCallState(metric.deviceId, false, {
-          packetLossPct: metric.packetLossPct,
-          jitterMs: metric.jitterMs,
-          latencyMs: metric.latencyMs,
-          mos: metric.mos,
-          bandwidthKbps: metric.bandwidthKbps,
-          rxBandwidthKbps: metric.rxBandwidthKbps,
-          txBandwidthKbps: metric.txBandwidthKbps,
-          updatedAt: new Date().toISOString()
-        });
+            packetLossPct: metric.packetLossPct,
+            jitterMs: metric.jitterMs,
+            latencyMs: metric.latencyMs,
+            mos: metric.mos,
+            bandwidthKbps: metric.bandwidthKbps,
+            rxBandwidthKbps: metric.rxBandwidthKbps,
+            txBandwidthKbps: metric.txBandwidthKbps,
+            updatedAt: new Date().toISOString()
+          });
           continue;
         }
 

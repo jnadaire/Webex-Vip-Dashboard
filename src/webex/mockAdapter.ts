@@ -44,11 +44,41 @@ export class MockWebexAdapter implements WebexAdapter {
     return deviceIds.map((deviceId) => {
       const inCall = Math.random() > 0.5;
       if (!inCall) {
-        return { deviceId, inCall: false };
+        return {
+          deviceId,
+          inCall: false,
+          booked: Math.random() > 0.45,
+          bookingStatus: Math.random() > 0.5 ? "freeuntil" : "free",
+          used: Math.random() > 0.5,
+          nextMeeting:
+            Math.random() > 0.35
+              ? {
+                  title: "Quarterly Business Review",
+                  startAt: new Date(Date.now() + 45 * 60_000).toISOString(),
+                  endAt: new Date(Date.now() + 90 * 60_000).toISOString()
+                }
+              : undefined
+        };
       }
       return {
         deviceId,
         inCall,
+        callProtocol: "WebRTC",
+        meetingPlatform: ["GoogleMeet", "Zoom", "MicrosoftTeams", "Webex"].at(
+          Math.floor(Math.random() * 4)
+        ),
+        callDisplayName: "meeting-room-demo",
+        booked: true,
+        bookingStatus: "booked",
+        used: true,
+        nextMeeting:
+          Math.random() > 0.5
+            ? {
+                title: "Exec Sync",
+                startAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+                endAt: new Date(Date.now() + 150 * 60_000).toISOString()
+              }
+            : undefined,
         packetLossPct: Number((Math.random() * 3).toFixed(2)),
         jitterMs: Number((Math.random() * 30).toFixed(1)),
         latencyMs: Number((50 + Math.random() * 150).toFixed(1)),
