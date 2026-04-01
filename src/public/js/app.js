@@ -358,17 +358,28 @@ function getBookingStatus(device) {
     : device?.bookingStatusSince
         ? minutesSince(device.bookingStatusSince)
         : 0;
+  const hasElapsedMinutes = targetMinutes > 0;
+  const nextMeetingAt = device?.nextMeeting?.startAt;
   if ((device.booked === true || bookingStatus === "bookeduntil") && stamp) {
     return tf("devices.bookedUntilTime", { time: formatTime(stamp) });
   }
   if ((bookingStatus === "freeuntil" || device.booked === false) && stamp) {
     return tf("devices.freeNextMeetingAt", { time: formatTime(stamp) });
   }
-  if (device.booked === true || bookingStatus === "bookeduntil") {
+  if ((device.booked === true || bookingStatus === "bookeduntil" || bookingStatus === "booked") && hasElapsedMinutes) {
     return tf("devices.bookedForMinutes", { minutes: targetMinutes });
   }
-  if (bookingStatus === "freeuntil" || device.booked === false) {
+  if ((bookingStatus === "free" || bookingStatus === "freenow" || bookingStatus === "freeuntil" || device.booked === false) && nextMeetingAt) {
+    return tf("devices.freeNextMeetingAt", { time: formatTime(nextMeetingAt) });
+  }
+  if ((bookingStatus === "free" || bookingStatus === "freenow" || bookingStatus === "freeuntil" || device.booked === false) && hasElapsedMinutes) {
     return tf("devices.freeForMinutes", { minutes: targetMinutes });
+  }
+  if (device.booked === true || bookingStatus === "bookeduntil" || bookingStatus === "booked") {
+    return t("devices.bookedNow");
+  }
+  if (bookingStatus === "free" || bookingStatus === "freenow" || bookingStatus === "freeuntil" || device.booked === false) {
+    return t("devices.freeNow");
   }
   return t("devices.unknownAvailability");
 }
@@ -898,10 +909,13 @@ async function bootstrap() {
   }
 }
 
+const BACKGROUND_REFRESH_MS = 5 * 60_000;
+const LIVE_RENDER_REFRESH_MS = 60_000;
+
 bootstrap();
 setInterval(() => {
   refresh().catch(() => undefined);
-}, 10_000);
+}, BACKGROUND_REFRESH_MS);
 setInterval(() => {
   render();
-}, 60_000);
+}, LIVE_RENDER_REFRESH_MS);
